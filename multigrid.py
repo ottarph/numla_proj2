@@ -309,14 +309,93 @@ def test_my_cg():
 
 def restriction(x, N):
     """ restriction with full weighting """
-    y = np.zeros(int(N/2) + 1, dtype=float)
+    n = int(N/2)
+    y = np.zeros((n+1, n+1), dtype=float)
+
+    """
+    index = np.arange(1, N)
+    ixy = np.ix_(index, index)
+    ixm_y = np.ix_(index-1, index)
+    ixp_y = np.ix_(index+1, index)
+    ix_ym = np.ix_(index, index-1)
+    ix_yp = np.ix_(index, index+1)
+    
+    u[ixy] = -( u[ixm_y] + u[ixp_y] + u[ix_ym] + u[ix_yp] - 4*u[ixy]) / h**2
+    """
+
+    index = np.arange(1, n)
+
+    Ixy = np.ix_(index, index)
+    ixy = np.ix_(2*index, 2*index)
+    ixm_y = np.ix_(2*index-1, 2*index)
+    ixp_y = np.ix_(2*index+1, 2*index)
+    ix_ym = np.ix_(2*index, 2*index-1)
+    ix_yp = np.ix_(2*index, 2*index+1)
+    ixm_ym = np.ix_(2*index-1, 2*index-1)
+    ixm_yp = np.ix_(2*index-1, 2*index+1)
+    ixp_ym = np.ix_(2*index+1, 2*index-1)
+    ixp_yp = np.ix_(2*index+1, 2*index+1)
+
+    y[Ixy] = 1/16 * ( 4*x[ixy] + 2*(x[ixm_y] + x[ixp_y] + x[ix_ym] + x[ix_yp]) +
+                        (x[ixm_ym] + x[ixm_yp] + x[ixp_ym] + x[ixp_yp]) )
+
+    BDindex = np.array([0, n], dtype=int)
+    BIxy = np.ix_(index, index)
+    Bixy = np.ix_(2*index, 2*index)
+
+    y[BIxy] = x[Bixy]
+
+    return y
 
 
+def test_restriction():
 
-    return x[::2,::2]
+    f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
 
+    N = 2**6
 
+    x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
+    y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
 
+    #b = np.zeros((N+2, N+2), dtype=float)
+    a = g(x, y)
+    a[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
+
+    fig = plt.figure() #figsize=(12, 8)
+    ax = fig.add_subplot(111, projection='3d')
+
+    
+
+    surf = ax.plot_surface(x, y, a,
+                            rstride=1, cstride=1, # Sampling rates for the x and y input data
+                            cmap=matplotlib.cm.viridis)
+    #plt.show()
+
+    b = restriction(a, N)
+
+    fig = plt.figure() #figsize=(12, 8)
+    ax = fig.add_subplot(111, projection='3d')
+
+    xx, yy = np.copy(x[::2,::2]), np.copy(y[::2,::2])
+
+    surf = ax.plot_surface(xx, yy, b,
+                            rstride=1, cstride=1, # Sampling rates for the x and y input data
+                            cmap=matplotlib.cm.viridis)
+
+    c = restriction(b, int(N/2))
+
+    fig = plt.figure() #figsize=(12, 8)
+    ax = fig.add_subplot(111, projection='3d')
+
+    xx, yy = np.copy(x[::4,::4]), np.copy(y[::4,::4])
+
+    surf = ax.plot_surface(xx, yy, c,
+                            rstride=1, cstride=1, # Sampling rates for the x and y input data
+                            cmap=matplotlib.cm.viridis)
+
+    plt.show()
 
     return
 
@@ -351,9 +430,9 @@ def mgv(u0, rhs, N, nu1, nu2, level, max_level):
 
 def main():
 
-    test_my_cg()
+    #test_my_cg()
 
-    #test_conjugate_gradient()
+    test_restriction()
 
 
     return

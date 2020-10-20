@@ -15,6 +15,7 @@ def conjugate_gradient(A, b, x0, tol=1e-12, max_iter=500):
     """
 
     inner = lambda x, y: np.sum( (x * y) )
+    #inner = lambda x, y:np.inner(x.flatten(), y.flatten())
 
     r0 = b - A(x0)
     p0 = np.copy(r0)
@@ -33,7 +34,8 @@ def conjugate_gradient(A, b, x0, tol=1e-12, max_iter=500):
     while nk / n0 > tol and i < max_iter + 1:
         i += 1
 
-        ak = Nk / inner(A(rk), rk)
+        ak = Nk / inner(A(pk), pk)
+        #ak = inner(rk, rk) / inner(A(pk), pk)
 
         xkp = xk + ak * pk
         rkp = rk - ak * A(pk)
@@ -42,6 +44,7 @@ def conjugate_gradient(A, b, x0, tol=1e-12, max_iter=500):
         nkp = np.sqrt(Nkp)
 
         bk = Nkp / Nk
+        #bk = inner(rkp, rkp) / inner(rk, rk)
         pkp = rkp + bk * pk
 
         xk = xkp
@@ -92,7 +95,91 @@ def test_conjugate_gradient():
     print(x)
     print(b - A(x))
 
-    
+    N = 20
+    h = 1 / (N-1)
+    L = np.zeros((N**2, N**2), dtype=float)
+    B = np.diag(np.full(N, 4, dtype=float), 0)
+    B += np.diag(np.full(N-1, -1, dtype=float),  1)
+    B += np.diag(np.full(N-1, -1, dtype=float), -1)
+    I = np.eye(N)
+
+    L[0*N:(0+1)*N, 0*N:(0+1)*N] += B
+    for i in range(1, N):
+        L[i*N:(i+1)*N, i*N:(i+1)*N] += B
+        L[(i-1)*N:i*N, i*N:(i+1)*N] -= I
+        L[i*N:(i+1)*N, (i-1)*N:i*N] -= I
+
+    L = L / h**2
+
+    print(L)
+
+    def A(x):
+
+        return L @ x
+
+    f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+
+    x = np.outer(np.linspace(0, 1, N), np.ones(N))
+    y = np.outer(np.ones(N), np.linspace(0, 1, N))
+
+    b = np.zeros((N,N), dtype=float)
+    b = g(x, y)
+    b[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
+    b = b.flatten()
+
+    u, i = conjugate_gradient(A, b, np.zeros_like(b))
+    print(i)
+
+    u = u.reshape(N,N)
+
+    fig = plt.figure() #figsize=(12, 8)
+    ax = fig.add_subplot(111, projection='3d')
+
+    K = np.linalg.cond(L)
+    print(K)
+
+    surf = ax.plot_surface(x, y, ( (L@u.flatten()).reshape(N,N) - b.reshape(N,N) ) * K,
+                            rstride=1, cstride=1, # Sampling rates for the x and y input data
+                            cmap=matplotlib.cm.viridis)
+    plt.show()
+
+
+    def L(u):
+        v = np.zeros_like(u)
+
+        v[0,0] = 2*u[0,0] - u[0,1]
+        v[0,1] = -u[0,0] + 2*u[0,1] - u[1,0]
+        v[1,0] = -u[0,1] + 2*u[1,0] - u[1,1]
+        v[1,1] = -u[1,0] + 2*u[1,1]
+
+        return v
+
+    def L(u):
+        A = np.array([[2, -1, 0, 0], [-1, 2, -1, 0], [0, -1, 2, -1], [0, 0, -1, 2]], dtype=float)
+
+        #print(A.shape)
+        #print(u.shape)
+
+        uu = u.flatten()
+        #print(uu.shape)
+        #print(uu)
+
+        return ( A @ uu ).reshape(u.shape)
+
+    u0 = np.zeros((4,4), dtype=float)
+    b_red = np.array([[10, 18], [17, 10]], dtype=float)
+    b_red = np.array([[1, 0], [0, 1]], dtype=float)
+    #u0 = np.zeros(4, dtype=float)
+    #b_red = np.array([1, 0, 0, 1], dtype=float)
+    u0[::2, ::2], i = conjugate_gradient(L, b_red, np.zeros_like(b_red))
+    #u, i = conjugate_gradient(L, b_red, np.zeros_like(b_red))
+    #print(i)
+    #print(u)
+    print(i)
+    print(u0)
+
 
 
     return
@@ -117,6 +204,10 @@ def my_cg(u0, f, N, tol=1e-12, max_iter=500):
 
         return u
 
+    print(u0)
+    print(f)
+    print(L(u0))
+
     inner = lambda x, y: np.sum( (x * y) )
 
     r0 = f - L(u0)
@@ -134,10 +225,10 @@ def my_cg(u0, f, N, tol=1e-12, max_iter=500):
 
     i = 0
     while nk / n0 > tol and i < max_iter + 1:
-        print(nk / n0)
         i += 1
+        #print(nk/n0)
 
-        ak = Nk / inner(L(rk), rk)
+        ak = Nk / inner(L(pk), pk)
 
         ukp = uk + ak * pk
         rkp = rk - ak * L(pk)
@@ -145,8 +236,8 @@ def my_cg(u0, f, N, tol=1e-12, max_iter=500):
         Nkp = inner(rkp, rkp)
         nkp = np.sqrt(Nkp)
 
-        fk = Nkp / Nk
-        pkp = rkp + fk * pk
+        bk = Nkp / Nk
+        pkp = rkp + bk * pk
 
         uk = ukp
         rk = rkp
@@ -178,35 +269,43 @@ def test_my_cg():
 
         return u
 
-    #f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
-    #g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
-    #u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
-    fp = lambda x, y: 2*x**2 - 2*x + 2*y**2 - 2*y
-    f = lambda x, y: 20*fp(x,y)
-    g = lambda x, y: 0*x*y
-    u_exp = lambda x, y: (x-x**2) * (y-y**2)
-    u_ex = lambda x, y: 20*u_exp(x,y)
+    f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    #fp = lambda x, y: 2*x**2 - 2*x + 2*y**2 - 2*y
+    #f = lambda x, y: 20*fp(x,y)
+    #g = lambda x, y: 0*x*y
+    #u_exp = lambda x, y: (x-x**2) * (y-y**2)
+    #u_ex = lambda x, y: 20*u_exp(x,y)
     
 
-    N = 100
+    N = 2**8 - 1
 
     x = np.outer(np.linspace(0, 1, N+2), np.ones(N+2))
     y = np.outer(np.ones(N+2), np.linspace(0, 1, N+2))
 
-    b = np.zeros((N+2,N+2), dtype=float)
+    b = np.zeros((N+2, N+2), dtype=float)
     b = g(x, y)
     b[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
 
     #b += 2
     
+    u0 = np.zeros_like(b)
+    #u0 = np.zeros((N+2, 2*N+1))
+    u0[1:-1, 1:-1] = 1
 
-    u, i = my_cg(np.zeros_like(b), b, N)
+    s = 16
+    #print(u0)
+    #u0[1:-1,1:-1] = 1
+    u = np.copy(u0)
+    u[::s, ::s], i = my_cg(u0[::s, ::s], b[::s, ::s], N, max_iter=1000)
+    
     print(i)
 
     fig = plt.figure() #figsize=(12, 8)
     ax = fig.add_subplot(111, projection='3d')
 
-    surf = ax.plot_surface(x, y, L(u_ex(x,y)),
+    surf = ax.plot_surface(x, y, u,
                             rstride=1, cstride=1, # Sampling rates for the x and y input data
                             cmap=matplotlib.cm.viridis)
     plt.show()
@@ -258,7 +357,7 @@ def other_cg(u0, f, N, tol=1e-12, max_iter=500):
         print(nk / n0)
         i += 1
 
-        ak = Nk / inner(L(rk), rk)
+        ak = Nk / inner(L(pk), pk)
 
         ukp = uk + ak * pk
         rkp = rk - ak * L(pk)
@@ -266,8 +365,8 @@ def other_cg(u0, f, N, tol=1e-12, max_iter=500):
         Nkp = inner(rkp, rkp)
         nkp = np.sqrt(Nkp)
 
-        fk = Nkp / Nk
-        pkp = rkp + fk * pk
+        bk = Nkp / Nk
+        pkp = rkp + bk * pk
 
         uk = ukp
         rk = rkp
@@ -316,11 +415,11 @@ def test_other_cg():
 
 def main():
 
-    #test_my_cg()
+    test_my_cg()
 
-    test_conjugate_gradient()
+    #test_conjugate_gradient()
 
-    test_other_cg()
+    #test_other_cg()
     
 
     return

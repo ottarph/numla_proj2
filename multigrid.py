@@ -190,10 +190,10 @@ def my_cg(u0, f, N, tol=1e-12, max_iter=500):
     def L(u):
         u = np.copy(u)
 
-        N = u.shape[0] - 2
-        h = 1 / (N+1)
+        N = u.shape[0] - 1
+        h = 1 / N
 
-        index = np.arange(1, N+1)
+        index = np.arange(1, N)
         ixy = np.ix_(index, index)
         ixm_y = np.ix_(index-1, index)
         ixp_y = np.ix_(index+1, index)
@@ -204,16 +204,11 @@ def my_cg(u0, f, N, tol=1e-12, max_iter=500):
 
         return u
 
-    print(u0)
-    print(f)
-    print(L(u0))
-
     inner = lambda x, y: np.sum( (x * y) )
 
     r0 = f - L(u0)
     p0 = np.copy(r0)
 
-    #N0 = np.linalg.norm(r0, ord='fro')
     N0 = inner(r0, r0)
     n0 = np.sqrt(N0)
 
@@ -226,7 +221,6 @@ def my_cg(u0, f, N, tol=1e-12, max_iter=500):
     i = 0
     while nk / n0 > tol and i < max_iter + 1:
         i += 1
-        #print(nk/n0)
 
         ak = Nk / inner(L(pk), pk)
 
@@ -255,10 +249,10 @@ def test_my_cg():
     def L(u):
         u = np.copy(u)
 
-        N = u.shape[0] - 2
-        h = 1 / (N+1)
+        N = u.shape[0] - 1
+        h = 1 / N
 
-        index = np.arange(1, N+1)
+        index = np.arange(1, N)
         ixy = np.ix_(index, index)
         ixm_y = np.ix_(index-1, index)
         ixp_y = np.ix_(index+1, index)
@@ -270,7 +264,7 @@ def test_my_cg():
         return u
 
     f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
-    g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y) + 1
     u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
     #fp = lambda x, y: 2*x**2 - 2*x + 2*y**2 - 2*y
     #f = lambda x, y: 20*fp(x,y)
@@ -279,22 +273,23 @@ def test_my_cg():
     #u_ex = lambda x, y: 20*u_exp(x,y)
     
 
-    N = 2**8 - 1
+    N = 2**8
 
-    x = np.outer(np.linspace(0, 1, N+2), np.ones(N+2))
-    y = np.outer(np.ones(N+2), np.linspace(0, 1, N+2))
+    x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
+    y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
 
-    b = np.zeros((N+2, N+2), dtype=float)
+    #b = np.zeros((N+2, N+2), dtype=float)
     b = g(x, y)
     b[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
 
     #b += 2
     
     u0 = np.zeros_like(b)
+    u0 = g(x, y)
     #u0 = np.zeros((N+2, 2*N+1))
-    u0[1:-1, 1:-1] = 1
+    u0[1:-1, 1:-1] = 0.5
 
-    s = 16
+    s = 2
     #print(u0)
     #u0[1:-1,1:-1] = 1
     u = np.copy(u0)
@@ -305,111 +300,52 @@ def test_my_cg():
     fig = plt.figure() #figsize=(12, 8)
     ax = fig.add_subplot(111, projection='3d')
 
-    surf = ax.plot_surface(x, y, u,
+    surf = ax.plot_surface(x[::s,::s], y[::s,::s], u[::s,::s],
                             rstride=1, cstride=1, # Sampling rates for the x and y input data
                             cmap=matplotlib.cm.viridis)
     plt.show()
 
     return
 
+def restriction(x, N):
+    """ restriction with full weighting """
+    y = np.zeros(int(N/2) + 1, dtype=float)
 
-def other_cg(u0, f, N, tol=1e-12, max_iter=500):
 
-    def L(u):
-        v = np.zeros_like(u)
 
-        v[0,0] = u[0,0] + 2*u[0,1] + 3*u[1,0] + 4*u[1,1]
-        v[0,1] = 5*u[0,1] + 6*u[1,0] + 7*u[1,1]
-        v[1,0] = 8*u[1,0] + 9*u[1,1]
-        v[1,1] = 10*u[1,1]
+    return x[::2,::2]
 
-        return v
 
-    inner = lambda x, y: np.sum( (x * y) )
-
-    def inner(x, y):
-        print(x, y, sep='\n', end='\n\n')
-        input()
-        m, n = x.shape
-        summ = 0
-
-        for i in range(m):
-            for j in range(n):
-                summ += x[i,j] * y[i,j]
-
-        return summ
-
-    r0 = f - L(u0)
-    p0 = np.copy(r0)
-
-    #N0 = np.linalg.norm(r0, ord='fro')
-    N0 = inner(r0, r0)
-    n0 = np.sqrt(N0)
-
-    uk = np.copy(u0)
-    rk = r0
-    pk = p0
-    Nk = N0
-    nk = n0
-
-    i = 0
-    while nk / n0 > tol and i < max_iter + 1:
-        print(nk / n0)
-        i += 1
-
-        ak = Nk / inner(L(pk), pk)
-
-        ukp = uk + ak * pk
-        rkp = rk - ak * L(pk)
-
-        Nkp = inner(rkp, rkp)
-        nkp = np.sqrt(Nkp)
-
-        bk = Nkp / Nk
-        pkp = rkp + bk * pk
-
-        uk = ukp
-        rk = rkp
-        pk = pkp
-        Nk = Nkp
-        nk = nkp
-
-    if i == max_iter + 1:
-        raise Exception("Did not converge within maximum number of iterations")
-
-    return uk, i
-
-def test_other_cg():
-
-    x_ex = np.ones((2,2), dtype=float)
-
-    x0 = np.zeros_like(x_ex)
-
-    b = np.array([[10, 18], [17, 10]], dtype=float)
-
-    def L(u):
-        v = np.zeros_like(u)
-
-        v[0,0] = u[0,0] + 2*u[0,1] + 3*u[1,0] + 4*u[1,1]
-        v[0,1] = 5*u[0,1] + 6*u[1,0] + 7*u[1,1]
-        v[1,0] = 8*u[1,0] + 9*u[1,1]
-        v[1,1] = 10*u[1,1]
-
-        return v
-
-    print(L(x_ex))
-    print(b)
-
-    print('\n\n\n')
-
-    x, i = other_cg(x0, b, 2)
-    #x, i = conjugate_gradient(L, b, x0)
-    print(i)
-
-    print(x)
 
 
     return
+
+
+
+def mgv(u0, rhs, N, nu1, nu2, level, max_level):
+    # the function mgv(u0,rhs,N,nu1,nu2,level,max_level) performs
+    # one multigrid V-cycle on the 2D Poisson problem on the unit
+    # square [0,1]x[0,1] with initial guess u0 and righthand side rhs.
+    #
+    # input: u0 - initial guess
+    # rhs - righthand side
+    # N - u0 is a (N+1)x(N+1) matrix
+    # nu1 - number of presmoothings
+    # nu2 - number of postsmoothings
+    # level - current level
+    # max_level - total number of levels
+    #
+    if level==max_level:
+        u, resvec, i = my_cg(u0,rhs,N,1.e-13,500)
+    else:
+        u = jacobi(u0, rhs, 2/3, N, nu1)
+        rf = residual(u, rhs, N)
+        rc = restriction(rf, N)
+        ec = mgv(np.zeros((int(N/2)+1,int(N/2)+1)), rc, int(N/2), nu1, nu2, level+1, max_level)
+        ef = interpolation(ec, int(N/2))
+        u = u + ef
+        u = jacobi(u,rhs,2/3,N,nu2)
+    return u
 
 
 
@@ -419,8 +355,6 @@ def main():
 
     #test_conjugate_gradient()
 
-    #test_other_cg()
-    
 
     return
 

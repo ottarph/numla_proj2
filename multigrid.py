@@ -278,26 +278,21 @@ def test_my_cg():
     x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
     y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
 
-    #b = np.zeros((N+2, N+2), dtype=float)
     b = g(x, y)
     b[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
 
-    #b += 2
     
     u0 = np.zeros_like(b)
     u0 = g(x, y)
-    #u0 = np.zeros((N+2, 2*N+1))
     u0[1:-1, 1:-1] = 0.5
 
     s = 2
-    #print(u0)
-    #u0[1:-1,1:-1] = 1
     u = np.copy(u0)
     u[::s, ::s], i = my_cg(u0[::s, ::s], b[::s, ::s], N, max_iter=1000)
     
     print(i)
 
-    fig = plt.figure() #figsize=(12, 8)
+    fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
     surf = ax.plot_surface(x[::s,::s], y[::s,::s], u[::s,::s],
@@ -312,20 +307,10 @@ def restriction(x, N):
     n = int(N/2)
     y = np.zeros((n+1, n+1), dtype=float)
 
-    """
-    index = np.arange(1, N)
-    ixy = np.ix_(index, index)
-    ixm_y = np.ix_(index-1, index)
-    ixp_y = np.ix_(index+1, index)
-    ix_ym = np.ix_(index, index-1)
-    ix_yp = np.ix_(index, index+1)
-    
-    u[ixy] = -( u[ixm_y] + u[ixp_y] + u[ix_ym] + u[ix_yp] - 4*u[ixy]) / h**2
-    """
-
     index = np.arange(1, n)
 
     Ixy = np.ix_(index, index)
+    
     ixy = np.ix_(2*index, 2*index)
     ixm_y = np.ix_(2*index-1, 2*index)
     ixp_y = np.ix_(2*index+1, 2*index)
@@ -359,7 +344,6 @@ def test_restriction():
     x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
     y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
 
-    #b = np.zeros((N+2, N+2), dtype=float)
     a = g(x, y)
     a[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
 
@@ -371,7 +355,6 @@ def test_restriction():
     surf = ax.plot_surface(x, y, a,
                             rstride=1, cstride=1, # Sampling rates for the x and y input data
                             cmap=matplotlib.cm.viridis)
-    #plt.show()
 
     b = restriction(a, N)
 
@@ -399,6 +382,77 @@ def test_restriction():
 
     return
 
+def interpolation(x, n):
+    """ Linear interpolation to grid with half grid size"""
+    N = 2*n
+    y = np.zeros((2*n+1, 2*n+1), dtype=float)
+
+    index = np.arange(0, n)
+
+    Ixy = np.ix_(index, index)
+    Ixp_y = np.ix_(index+1, index)
+    Ix_yp = np.ix_(index, index+1)
+    Ixp_yp = np.ix_(index+1, index+1)
+
+    ixy = np.ix_(2*index, 2*index)
+    ixp_y = np.ix_(2*index+1, 2*index)
+    ix_yp = np.ix_(2*index, 2*index+1)
+    ixp_yp = np.ix_(2*index+1, 2*index+1)
+
+    y[ixy]    = x[Ixy]
+    y[ixp_y]  = 1/2 * (x[Ixy] + x[Ixp_y])
+    y[ix_yp]  = 1/2 * (x[Ixy] + x[Ix_yp])
+    y[ixp_yp] = 1/4 * (x[Ixy] + x[Ixp_y] + x[Ix_yp] + x[Ixp_yp])
+
+    """ Should enforce accurate boundary conditions? """
+
+    return y
+
+def test_interpolation():
+
+    f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+
+    n = 2**4
+
+    x = np.outer(np.linspace(0, 1, n+1), np.ones(n+1))
+    y = np.outer(np.ones(n+1), np.linspace(0, 1, n+1))
+
+    a = g(x, y)
+    a[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
+
+    a = u_ex(x,y)
+
+    fig = plt.figure() #figsize=(12, 8)
+    ax = fig.add_subplot(111, projection='3d')
+
+    surf = ax.plot_surface(x, y, a,
+                            rstride=1, cstride=1, # Sampling rates for the x and y input data
+                            cmap=matplotlib.cm.viridis)
+
+    b = interpolation(a, n)
+
+    x = np.outer(np.linspace(0, 1, 2*n+1), np.ones(2*n+1))
+    y = np.outer(np.ones(2*n+1), np.linspace(0, 1, 2*n+1))
+
+    fig = plt.figure() #figsize=(12, 8)
+    ax = fig.add_subplot(111, projection='3d')
+
+    surf = ax.plot_surface(x, y, b,
+                            rstride=1, cstride=1, # Sampling rates for the x and y input data
+                            cmap=matplotlib.cm.viridis)
+
+    fig = plt.figure() #figsize=(12, 8)
+    ax = fig.add_subplot(111, projection='3d')
+
+    surf = ax.plot_surface(x, y, u_ex(x,y) - b,
+                            rstride=1, cstride=1, # Sampling rates for the x and y input data
+                            cmap=matplotlib.cm.viridis)
+
+    plt.show()
+
+    return
 
 
 def mgv(u0, rhs, N, nu1, nu2, level, max_level):
@@ -432,7 +486,9 @@ def main():
 
     #test_my_cg()
 
-    test_restriction()
+    #test_restriction()
+
+    test_interpolation()
 
 
     return

@@ -310,7 +310,7 @@ def restriction(x, N):
     index = np.arange(1, n)
 
     Ixy = np.ix_(index, index)
-    
+
     ixy = np.ix_(2*index, 2*index)
     ixm_y = np.ix_(2*index-1, 2*index)
     ixp_y = np.ix_(2*index+1, 2*index)
@@ -404,6 +404,12 @@ def interpolation(x, n):
     y[ix_yp]  = 1/2 * (x[Ixy] + x[Ix_yp])
     y[ixp_yp] = 1/4 * (x[Ixy] + x[Ixp_y] + x[Ix_yp] + x[Ixp_yp])
 
+    """ Not sure if this section is needed """
+    bxy = np.ix_(np.arange(0, n+1), np.full(n+1, n, dtype=int))
+    y[bxy]    = x[bxy]
+    bxy = np.ix_(np.full(n+1, n, dtype=int), np.arange(0, n+1))
+    y[bxy]    = x[bxy]
+
     """ Should enforce accurate boundary conditions? """
 
     return y
@@ -454,6 +460,70 @@ def test_interpolation():
 
     return
 
+def residual(u, rhs, N):
+
+    """ TODO """
+    def L(u):
+        u = np.copy(u)
+
+        #N = u.shape[0] - 1
+        h = 1 / N
+
+        index = np.arange(1, N)
+        ixy = np.ix_(index, index)
+        ixm_y = np.ix_(index-1, index)
+        ixp_y = np.ix_(index+1, index)
+        ix_ym = np.ix_(index, index-1)
+        ix_yp = np.ix_(index, index+1)
+        
+        u[ixy] = -( u[ixm_y] + u[ixp_y] + u[ix_ym] + u[ix_yp] - 4*u[ixy]) / h**2
+
+        return u
+
+    return rhs - L(u)
+
+def test_residual():
+
+    f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+
+    N = 2**5
+
+    x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
+    y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
+
+    a = g(x, y)
+    a[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
+
+    u = u_ex(x, y)
+
+    r = residual(u, a, N)
+
+    fig = plt.figure() #figsize=(12, 8)
+    ax = fig.add_subplot(111, projection='3d')
+
+    surf = ax.plot_surface(x, y, r,
+                            rstride=1, cstride=1, # Sampling rates for the x and y input data
+                            cmap=matplotlib.cm.viridis)
+
+    u0 = np.zeros_like(a)    
+    u0[1:-1,1:-1] = np.random.random((N-1, N-1))
+    uh, i = my_cg(u0, a, N)
+
+    rh = residual(uh, a, N)
+
+    fig = plt.figure() #figsize=(12, 8)
+    ax = fig.add_subplot(111, projection='3d')
+
+    surf = ax.plot_surface(x, y, rh,
+                            rstride=1, cstride=1, # Sampling rates for the x and y input data
+                            cmap=matplotlib.cm.viridis)
+
+    plt.show()
+
+    return
+
 
 def mgv(u0, rhs, N, nu1, nu2, level, max_level):
     # the function mgv(u0,rhs,N,nu1,nu2,level,max_level) performs
@@ -480,6 +550,43 @@ def mgv(u0, rhs, N, nu1, nu2, level, max_level):
         u = jacobi(u,rhs,2/3,N,nu2)
     return u
 
+def test_mgv():
+
+    f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+
+    N      = 2**6
+    levels = 3
+    nu1    = 5
+    nu2    = 5
+
+    x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
+    y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
+
+    rhs = g(x, y)
+    rhs[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
+
+    u = u_ex(x, y)
+    
+    np.random.seed(seed=1)
+    u0 = np.copy(rhs)
+    u0[1:-1,1:-1] = np.random.random((N-1, N-1))
+
+    uh = mgv(u0, rhs, N, nu1, nu2, level=1, max_level=levels)
+
+
+    fig = plt.figure() #figsize=(12, 8)
+    ax = fig.add_subplot(111, projection='3d')
+
+    surf = ax.plot_surface(x, y, uh,
+                            rstride=1, cstride=1, # Sampling rates for the x and y input data
+                            cmap=matplotlib.cm.viridis)
+
+    plt.show()
+
+
+    return
 
 
 def main():
@@ -488,7 +595,11 @@ def main():
 
     #test_restriction()
 
-    test_interpolation()
+    #test_interpolation()
+
+    #test_residual()
+
+    test_mgv()
 
 
     return

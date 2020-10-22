@@ -462,11 +462,9 @@ def test_interpolation():
 
 def residual(u, rhs, N):
 
-    """ TODO """
     def L(u):
         u = np.copy(u)
 
-        #N = u.shape[0] - 1
         h = 1 / N
 
         index = np.arange(1, N)
@@ -523,6 +521,100 @@ def test_residual():
     plt.show()
 
     return
+
+def jacobi(u0, rhs, w, N, nu):    
+
+    def L(u):
+        u = np.copy(u)
+
+        h = 1 / N
+
+        index = np.arange(1, N)
+        ixy = np.ix_(index, index)
+        ixm_y = np.ix_(index-1, index)
+        ixp_y = np.ix_(index+1, index)
+        ix_ym = np.ix_(index, index-1)
+        ix_yp = np.ix_(index, index+1)
+        
+        u[ixy] = -( u[ixm_y] + u[ixp_y] + u[ix_ym] + u[ix_yp] - 4*u[ixy]) / h**2
+
+        return u
+
+    h = 1 / N
+
+    index = np.arange(1, N)
+    ixy = np.ix_(index, index)
+    ixm_y = np.ix_(index-1, index)
+    ixp_y = np.ix_(index+1, index)
+    ix_ym = np.ix_(index, index-1)
+    ix_yp = np.ix_(index, index+1)
+
+    def jacobi_step(uk, rhs, w, N):
+
+        #ukp = np.copy(uk)
+
+        #left_term = uk[]
+        #DmAu = np.zeros((N-1, N-1), dtype=float)
+        DmAu = np.zeros_like(uk)
+        DmAu[ixy] = 1/h**2 * (uk[ixm_y] + uk[ixp_y] + uk[ix_ym] + uk[ix_yp])
+        
+        left_term = np.zeros_like(uk)
+        left_term[ixy] = ( DmAu[ixy] + rhs[ixy] ) * h**2 / 4
+
+        ukp = w * left_term + (1-w) * uk
+
+        return ukp
+        """ Dele på null tull??? """
+
+    uk = np.copy(u0)
+
+    for _ in range(nu):
+        uk = jacobi_step(uk, rhs, w, N)
+
+    return uk
+
+def test_jacobi():
+
+    f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+
+    N      = 2**5
+    nu     = 1000
+    w      = 2/3
+
+    x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
+    y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
+
+    rhs = g(x, y)
+    rhs[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
+
+    np.random.seed(seed=1)
+    u0 = np.copy(rhs)
+    u0[1:-1,1:-1] = np.random.random((N-1,N-1))
+
+    uh = jacobi(u0, rhs, w, N, nu)
+
+    fig = plt.figure() #figsize=(12, 8)
+    ax = fig.add_subplot(111, projection='3d')
+
+    surf = ax.plot_surface(x, y, u0,
+                            rstride=1, cstride=1, # Sampling rates for the x and y input data
+                            cmap=matplotlib.cm.viridis)
+
+    fig = plt.figure() #figsize=(12, 8)
+    ax = fig.add_subplot(111, projection='3d')
+
+    surf = ax.plot_surface(x, y, uh,
+                            rstride=1, cstride=1, # Sampling rates for the x and y input data
+                            cmap=matplotlib.cm.viridis)
+
+    plt.show()
+
+
+    return
+
+
 
 
 def mgv(u0, rhs, N, nu1, nu2, level, max_level):
@@ -599,7 +691,9 @@ def main():
 
     #test_residual()
 
-    test_mgv()
+    test_jacobi()
+
+    #test_mgv()
 
 
     return

@@ -373,10 +373,10 @@ def test_mgv():
     g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
     u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
 
-    N      = 2**6
-    levels = 3
-    nu1    = 5
-    nu2    = 5
+    N      = 2**10
+    levels = 4
+    nu1    = 20
+    nu2    = 20
 
     x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
     y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
@@ -396,11 +396,57 @@ def test_mgv():
     fig = plt.figure() 
     ax = fig.add_subplot(111, projection='3d')
 
-    surf = ax.plot_surface(x, y, uh,
+    s = 8
+    surf = ax.plot_surface(x[::s,::s], y[::s,::s], uh[::s,::s],
                             rstride=1, cstride=1, 
                             cmap=matplotlib.cm.viridis)
 
     plt.show()
+
+
+    return
+
+def test_pcg():
+
+    f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+
+    N          = 2**6
+    levels     = 3
+    nu1        = 10
+    nu2        = 10
+    tol        = 1e-13
+    max_iter   = 40
+    cg_tol     = 1e-8
+    cg_maxiter = 300
+
+    x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
+    y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
+
+    rhs = g(x, y)
+    rhs[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
+
+    u = u_ex(x, y)
+    
+    np.random.seed(seed=1)
+    u0 = np.copy(rhs)
+    u0[1:-1,1:-1] = np.random.random((N-1, N-1))
+
+    uh, i = pcg(u0, rhs, N, nu1, nu2, level=1, max_level=levels, tol=tol, max_iter=max_iter, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
+
+    print(f'#iterations = {i}')
+
+    fig = plt.figure() 
+    ax = fig.add_subplot(111, projection='3d')
+
+    s = 2
+    surf = ax.plot_surface(x[::s,::s], y[::s,::s], uh[::s,::s],
+                            rstride=1, cstride=1, 
+                            cmap=matplotlib.cm.viridis)
+
+    plt.show()
+
 
 
     return
@@ -415,9 +461,11 @@ def main():
 
     #test_residual()
 
-    test_jacobi()
+    #test_jacobi()
 
-    #test_mgv()
+    test_mgv()
+
+    #test_pcg()
 
 if __name__ == '__main__':
     main()

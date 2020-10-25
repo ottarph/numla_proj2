@@ -231,7 +231,7 @@ def jacobi(u0, rhs, w, N, nu):
     return uk
 
 
-def mgv(u0, rhs, N, nu1, nu2, level, max_level):
+def mgv(u0, rhs, N, nu1, nu2, level, max_level, cg_tol=1e-13, cg_maxiter=500):
     # the function mgv(u0,rhs,N,nu1,nu2,level,max_level) performs
     # one multigrid V-cycle on the 2D Poisson problem on the unit
     # square [0,1]x[0,1] with initial guess u0 and righthand side rhs.
@@ -245,16 +245,94 @@ def mgv(u0, rhs, N, nu1, nu2, level, max_level):
     # max_level - total number of levels
     #
     if level==max_level:
-        u, resvec, i = my_cg(u0,rhs,N,1.e-13,500)
+        #u, resvec, i = my_cg(u0,rhs,N,1.e-13,500)
+        u, i = my_cg(u0, rhs, N, cg_tol, cg_maxiter)
+        #print(i)
     else:
         u = jacobi(u0, rhs, 2/3, N, nu1)
         rf = residual(u, rhs, N)
         rc = restriction(rf, N)
-        ec = mgv(np.zeros((int(N/2)+1,int(N/2)+1)), rc, int(N/2), nu1, nu2, level+1, max_level)
+        ec = mgv(np.zeros((int(N/2)+1,int(N/2)+1)), rc, int(N/2), nu1, nu2, level+1, max_level, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
         ef = interpolation(ec, int(N/2))
         u = u + ef
-        u = jacobi(u,rhs,2/3,N,nu2)
+        u = jacobi(u, rhs, 2/3, N, nu2)
     return u
+
+def pcg(u0, rhs, N, nu1, nu2, level, max_level, tol=1e-12, max_iter=500, cg_tol=1e-13, cg_maxiter=500):
+
+    def L(u):
+        u = np.copy(u)
+
+        N = u.shape[0] - 1
+        h = 1 / N
+
+        index = np.arange(1, N)
+        ixy = np.ix_(index, index)
+        ixm_y = np.ix_(index-1, index)
+        ixp_y = np.ix_(index+1, index)
+        ix_ym = np.ix_(index, index-1)
+        ix_yp = np.ix_(index, index+1)
+        
+        u[ixy] = -( u[ixm_y] + u[ixp_y] + u[ix_ym] + u[ix_yp] - 4*u[ixy]) / h**2
+
+        return u
+
+    inner = lambda x, y: np.sum( (x * y) )
+
+    r0 = rhs - L(u0)
+    z0 = mgv(np.zeros_like(r0), r0, N, nu1, nu2, level, max_level, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
+    p0 = np.copy(z0)
+
+    N0 = inner(r0, r0)
+    n0 = np.sqrt(N0)
+    g0 = inner(r0, z0)
+
+    uk = np.copy(u0)
+    rk = r0
+    zk = z0
+    pk = p0
+    Nk = N0
+    nk = n0
+    gk = g0
+
+    i = 0
+    while nk / n0 > tol and i < max_iter + 1:
+        i += 1
+        #print(i)
+        #print(nk)
+
+        ak = gk / inner(L(pk), pk)
+
+        ukp = uk + ak * pk
+        rkp = rk - ak * L(pk)
+        zkp = mgv(np.zeros_like(rk), rk, N, nu1, nu2, level, max_level, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
+        if i > 5:
+            return zkp, 2
+        #print(inner(rkp, L(zkp)))
+        #print(inner(rkp, rk))
+
+        Nkp = inner(rkp, rkp)
+        nkp = np.sqrt(Nkp)
+        gkp = inner(rkp, zkp)
+
+        #print(inner(rkp, rk))
+        print(inner(zkp, zk))
+
+        bk = gkp / gk
+        pkp = zkp + bk * pk
+
+        uk = ukp
+        rk = rkp
+        zk = zkp
+        pk = pkp
+        Nk = Nkp
+        nk = nkp
+        gk = gkp
+
+    #if i == max_iter + 1:
+    #    raise Exception("Did not converge within maximum number of iterations")
+
+    return uk, i
 
 
 def main():

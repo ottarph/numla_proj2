@@ -203,7 +203,7 @@ def residual(u, rhs, N):
     return rhs - L(u)
 
 
-def jacobi(u0, rhs, w, N, nu):    
+def jacobi(u0, rhs, w, N, nu):
 
     h = 1 / N
 
@@ -216,7 +216,7 @@ def jacobi(u0, rhs, w, N, nu):
 
     def jacobi_step(uk, rhs, w, N):
         
-        left_term = np.zeros_like(uk)
+        left_term = np.copy(uk)
 
         left_term[ixy] = 0.25 * ( uk[ixm_y] + uk[ixp_y] + uk[ix_ym] + uk[ix_yp] + h**2 * rhs[ixy] )
 

@@ -358,9 +358,11 @@ def test_jacobi():
     f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
     g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
     u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    f = lambda x, y: 0*x - 1
+    g = lambda x, y: np.where(x == 0, 4*y*(1-y), 0*x)
 
     N      = 2**5
-    nu     = 5
+    nu     = 50
     w      = 2/3
 
     x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
@@ -377,14 +379,21 @@ def test_jacobi():
 
     fig = plt.figure() 
     ax = fig.add_subplot(111, projection='3d')
+    ax.set_title(r"$\mathrm{rhs}$")
+    surf = ax.plot_surface(x, y, rhs,
+                            rstride=1, cstride=1, 
+                            cmap=matplotlib.cm.viridis)
 
+    fig = plt.figure() 
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_title("$u_0$")
     surf = ax.plot_surface(x, y, u0,
                             rstride=1, cstride=1, 
                             cmap=matplotlib.cm.viridis)
 
     fig = plt.figure() 
     ax = fig.add_subplot(111, projection='3d')
-
+    ax.set_title("$u_h$")
     surf = ax.plot_surface(x, y, uh,
                             rstride=1, cstride=1, 
                             cmap=matplotlib.cm.viridis)
@@ -447,21 +456,13 @@ def test_mgv_poly():
     #g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
     #u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
     f = lambda x, y: 0*x - 1
-    def g(x, y):
-
-        return np.where(x == 0, 4*y*(1-y), 0*x)
-
-        if x == 0:
-            return 4*y*(1 - y)
-        else:
-            return 0*x
-    #u_ex = 
+    g = lambda x, y: np.where(x == 0, 4*y*(1-y), 0*x)
     
 
     N      = 2**7
     levels = 4
-    nu1    = 50
-    nu2    = 50
+    nu1    = 40
+    nu2    = 40
 
     x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
     y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
@@ -475,9 +476,12 @@ def test_mgv_poly():
     u0 = np.copy(rhs)
     u0[1:-1,1:-1] = np.random.random((N-1, N-1))
     
-    uh_arr = []
-    uh = mgv_debug(u0, rhs, N, nu1, nu2, level=1, max_level=levels, uh_arr=uh_arr)
+    #uh_arr = []
+    #uh = mgv_debug(u0, rhs, N, nu1, nu2, level=1, max_level=levels, uh_arr=uh_arr)
+    uh = mgv(u0, rhs, N, nu1, nu2, level=1, max_level=levels)
 
+    #region
+    '''
     K = len(uh_arr)
     s = 2
     fig = plt.figure()
@@ -489,16 +493,18 @@ def test_mgv_poly():
         surf = ax.plot_surface(xx, yy, uh,
                             rstride=1, cstride=1, 
                             cmap=matplotlib.cm.viridis)
-
     '''
+    #endregion
+    
+    #'''
     fig = plt.figure() 
     ax = fig.add_subplot(111, projection='3d')
 
-    s = 4
+    s = 2
     surf = ax.plot_surface(x[::s,::s], y[::s,::s], uh[::s,::s],
                             rstride=1, cstride=1, 
                             cmap=matplotlib.cm.viridis)
-    '''
+    #'''
 
     plt.show()
 
@@ -556,13 +562,13 @@ def main():
 
     #test_restriction()
 
-    test_interpolation()
+    #test_interpolation()
 
     #test_residual()
 
-    #test_jacobi()
+    test_jacobi()
 
-    test_mgv()
+    #test_mgv()
 
     #test_mgv_poly()
 

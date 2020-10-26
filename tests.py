@@ -151,7 +151,7 @@ def test_my_cg():
         return u
 
     f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
-    g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y) + 1
+    g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
     u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
     #fp = lambda x, y: 2*x**2 - 2*x + 2*y**2 - 2*y
     #f = lambda x, y: 20*fp(x,y)
@@ -160,7 +160,7 @@ def test_my_cg():
     #u_ex = lambda x, y: 20*u_exp(x,y)
     
 
-    N = 2**8
+    N = 2**7
 
     x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
     y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
@@ -171,9 +171,10 @@ def test_my_cg():
     
     u0 = np.zeros_like(b)
     u0 = g(x, y)
-    u0[1:-1, 1:-1] = 0.5
+    np.random.seed(seed=1)
+    u0[1:-1, 1:-1] = 1 - 0.5*np.random.random((N-1,N-1))
 
-    s = 2
+    s = 1
     u = np.copy(u0)
     u[::s, ::s], i = my_cg(u0[::s, ::s], b[::s, ::s], N, max_iter=1000)
     
@@ -182,9 +183,32 @@ def test_my_cg():
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    surf = ax.plot_surface(x[::s,::s], y[::s,::s], u[::s,::s],
+    s = 1
+    surf = ax.plot_surface(x[::s,::s], y[::s,::s], (u_ex(x,y) - u)[::s,::s],
                             rstride=1, cstride=1, 
                             cmap=matplotlib.cm.viridis)
+
+    errs = []
+    for _ in range(10):
+        print(_)
+        u0 = np.zeros_like(b)
+        u0 = g(x, y)
+        u0[1:-1, 1:-1] = 1 - 0.5*np.random.random((N-1,N-1))
+
+        u, i = my_cg(u0, b, N, max_iter=1000)
+
+        kl = np.unravel_index(np.argmax((u_ex(x,y) - u)), u.shape)
+        #print(kl)
+        print(x[kl], y[kl])
+        print(u_ex(x, y)[kl] - u[kl])
+
+        e = np.linalg.norm((u_ex(x,y) - u).flatten(), ord=np.inf)
+        errs.append(e)
+
+    fig, ax = plt.subplots()
+    plt.plot(range(len(errs)), errs, 'k:')
+    print(errs)
+
     plt.show()
 
     return
@@ -202,6 +226,7 @@ def test_restriction():
 
     a = g(x, y)
     a[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
+    print(a.shape)
 
     fig = plt.figure() 
     ax = fig.add_subplot(111, projection='3d')
@@ -213,6 +238,7 @@ def test_restriction():
                             cmap=matplotlib.cm.viridis)
 
     b = restriction(a, N)
+    print(b.shape)
 
     fig = plt.figure() 
     ax = fig.add_subplot(111, projection='3d')
@@ -224,6 +250,7 @@ def test_restriction():
                             cmap=matplotlib.cm.viridis)
 
     c = restriction(b, int(N/2))
+    print(c.shape)
 
     fig = plt.figure() 
     ax = fig.add_subplot(111, projection='3d')
@@ -401,6 +428,78 @@ def test_mgv():
                             rstride=1, cstride=1, 
                             cmap=matplotlib.cm.viridis)
 
+    fig = plt.figure() 
+    ax = fig.add_subplot(111, projection='3d')
+
+    s = 8
+    surf = ax.plot_surface(x[::s,::s], y[::s,::s], (u - uh)[::s,::s],
+                            rstride=1, cstride=1, 
+                            cmap=matplotlib.cm.viridis)
+
+    plt.show()
+
+
+    return
+
+def test_mgv_poly():
+
+    #f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    #g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    #u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    f = lambda x, y: 0*x - 1
+    def g(x, y):
+
+        return np.where(x == 0, 4*y*(1-y), 0*x)
+
+        if x == 0:
+            return 4*y*(1 - y)
+        else:
+            return 0*x
+    #u_ex = 
+    
+
+    N      = 2**7
+    levels = 4
+    nu1    = 50
+    nu2    = 50
+
+    x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
+    y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
+
+    rhs = g(x, y)
+    rhs[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
+
+    #u = u_ex(x, y)
+    
+    np.random.seed(seed=1)
+    u0 = np.copy(rhs)
+    u0[1:-1,1:-1] = np.random.random((N-1, N-1))
+    
+    uh_arr = []
+    uh = mgv_debug(u0, rhs, N, nu1, nu2, level=1, max_level=levels, uh_arr=uh_arr)
+
+    K = len(uh_arr)
+    s = 2
+    fig = plt.figure()
+    for i, uh in enumerate(uh_arr):
+        k = uh.shape[0]
+        xx = np.outer(np.linspace(0, 1, k), np.ones(k))
+        yy = np.outer(np.ones(k), np.linspace(0, 1, k))
+        ax = fig.add_subplot(K//2 + K%2, 2, i+1, projection='3d')
+        surf = ax.plot_surface(xx, yy, uh,
+                            rstride=1, cstride=1, 
+                            cmap=matplotlib.cm.viridis)
+
+    '''
+    fig = plt.figure() 
+    ax = fig.add_subplot(111, projection='3d')
+
+    s = 4
+    surf = ax.plot_surface(x[::s,::s], y[::s,::s], uh[::s,::s],
+                            rstride=1, cstride=1, 
+                            cmap=matplotlib.cm.viridis)
+    '''
+
     plt.show()
 
 
@@ -457,13 +556,15 @@ def main():
 
     #test_restriction()
 
-    #test_interpolation()
+    test_interpolation()
 
     #test_residual()
 
     #test_jacobi()
 
     test_mgv()
+
+    #test_mgv_poly()
 
     #test_pcg()
 

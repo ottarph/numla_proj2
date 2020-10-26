@@ -171,11 +171,12 @@ def interpolation(x, n):
     y[ixp_yp] = 1/4 * (x[Ixy] + x[Ixp_y] + x[Ix_yp] + x[Ixp_yp])
 
     """ Not sure if this section is needed """
-    bxy = np.ix_(np.arange(0, n+1), np.full(n+1, n, dtype=int))
-    y[bxy]    = x[bxy]
-    bxy = np.ix_(np.full(n+1, n, dtype=int), np.arange(0, n+1))
-    y[bxy]    = x[bxy]
-
+    Edge = np.arange(0, 2*n + 1, step=2, dtype=int)
+    edge = np.arange(0, n + 1, dtype=int)
+    y[Edge, np.full(n+1, 0, dtype=int)] = x[edge, np.full(n+1, 0, dtype=int)]
+    y[Edge, np.full(n+1, 2*n, dtype=int)] = x[edge, np.full(n+1, n, dtype=int)]
+    y[np.full(n+1, 0, dtype=int), Edge] = x[np.full(n+1, 0, dtype=int), edge]
+    y[np.full(n+1, 2*n, dtype=int), Edge] = x[np.full(n+1, n, dtype=int), edge]
     """ Should enforce accurate boundary conditions? """
 
     return y
@@ -256,6 +257,34 @@ def mgv(u0, rhs, N, nu1, nu2, level, max_level, cg_tol=1e-13, cg_maxiter=500):
         ef = interpolation(ec, int(N/2))
         u = u + ef
         u = jacobi(u, rhs, 2/3, N, nu2)
+    return u
+
+def mgv_debug(u0, rhs, N, nu1, nu2, level, max_level, uh_arr, cg_tol=1e-13, cg_maxiter=500):
+    # the function mgv(u0,rhs,N,nu1,nu2,level,max_level) performs
+    # one multigrid V-cycle on the 2D Poisson problem on the unit
+    # square [0,1]x[0,1] with initial guess u0 and righthand side rhs.
+    #
+    # input: u0 - initial guess
+    # rhs - righthand side
+    # N - u0 is a (N+1)x(N+1) matrix
+    # nu1 - number of presmoothings
+    # nu2 - number of postsmoothings
+    # level - current level
+    # max_level - total number of levels
+    #
+    if level==max_level:
+        #u, resvec, i = my_cg(u0,rhs,N,1.e-13,500)
+        u, i = my_cg(u0, rhs, N, cg_tol, cg_maxiter)
+        #print(i)
+    else:
+        u = jacobi(u0, rhs, 2/3, N, nu1)
+        rf = residual(u, rhs, N)
+        rc = restriction(rf, N)
+        ec = mgv_debug(np.zeros((int(N/2)+1,int(N/2)+1)), rc, int(N/2), nu1, nu2, level+1, max_level, uh_arr, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
+        ef = interpolation(ec, int(N/2))
+        u = u + ef
+        u = jacobi(u, rhs, 2/3, N, nu2)
+    uh_arr.append(u)
     return u
 
 def pcg(u0, rhs, N, nu1, nu2, level, max_level, tol=1e-12, max_iter=500, cg_tol=1e-13, cg_maxiter=500):

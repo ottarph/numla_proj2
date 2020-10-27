@@ -15,9 +15,13 @@ def cg_pcg_comparison():
     pcg_iters = []
     pcg_times = []
 
-    Ns = [2**i for i in range(5, 7+1)]
+    Ns = [2**i for i in range(5, 8+1)]
+    K = 20
+    Ns = 2**3 * np.unique(np.logspace(2.5, 4.5, K, base=2.0, dtype=int))
+    print(Ns)
     for N in Ns:
-        print(N)
+        #print(N)
+        print('\r' + ' '*10 + '\r' + f'N = {N}', end='')
 
         x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
         y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
@@ -43,25 +47,26 @@ def cg_pcg_comparison():
 
 
         """ Preconditioned Conjugate Gradient """
-        levels     = 3
-        nu1        = 5
-        nu2        = 5
-        tol        = 1e-13
+        levels     = 4
+        nu1        = 10
+        nu2        = 10
+        tol        = 1e-12
         max_iter   = 1000
-        cg_tol     = 1e-3
-        cg_maxiter = 500
+        cg_tol     = 1e-12
+        cg_maxiter = 1000
 
         start = time()
         uh, i, ns = pcg(u0, rhs, N, nu1, nu2, level=1, max_level=levels, tol=tol, max_iter=max_iter, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
         end = time()
+        #print(i)
         pcg_iters.append(i)
         pcg_times.append(end - start)
 
     Ns = np.array(Ns, dtype=int)
     cg_iters = np.array(cg_iters, dtype=float)
     cg_times = np.array(cg_times, dtype=float)
-    pcg_iters = np.array(cg_iters, dtype=float)
-    pcg_times = np.array(cg_times, dtype=float)
+    pcg_iters = np.array(pcg_iters, dtype=float)
+    pcg_times = np.array(pcg_times, dtype=float)
 
     plt.figure()
     plt.semilogy(Ns, cg_iters, 'k--', label='CG')
@@ -71,11 +76,13 @@ def cg_pcg_comparison():
     plt.legend()
 
     plt.figure()
-    plt.semilogy(Ns, cg_times, 'k--', label='CG')
-    plt.semilogy(Ns, pcg_times, 'k:', label='PCG')
-    plt.ylabel('Runtime')
+    plt.semilogy(Ns, cg_times*1000, 'k--', label='CG')
+    plt.semilogy(Ns, pcg_times*1000, 'k:', label='PCG')
+    plt.ylabel('Runtime / ms')
     plt.xlabel('$N$')
     plt.legend()
+
+    print(pcg_iters)
 
     plt.show()
 

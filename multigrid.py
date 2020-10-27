@@ -245,7 +245,6 @@ def mgv(u0, rhs, N, nu1, nu2, level, max_level, cg_tol=1e-13, cg_maxiter=500):
     # level - current level
     # max_level - total number of levels
     #
-    print('yee')
     if level==max_level:
         #u, resvec, i = my_cg(u0,rhs,N,1.e-13,500)
         u, i = my_cg(u0, rhs, N, cg_tol, cg_maxiter)

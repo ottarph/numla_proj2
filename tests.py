@@ -522,6 +522,8 @@ def test_pcg():
     f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
     g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
     u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
+    f = lambda x, y: 0*x - 1
+    g = lambda x, y: np.where(x == 0, 4*y*(1-y), 0*x)
 
     N          = 2**7
     levels     = 3
@@ -554,6 +556,9 @@ def test_pcg():
     #print(ns)
     plt.figure()
     plt.semilogy(range(len(ns)), ns, 'k:')
+
+    uh_cg, i_cg = my_cg(u0, rhs, N, tol=tol, max_iter=max_iter)
+    print(f'#CG-iterations = {i_cg}')
 
     #fig = plt.figure() 
     #ax = fig.add_subplot(111, projection='3d')

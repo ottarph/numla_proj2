@@ -177,7 +177,7 @@ def test_my_cg():
 
     s = 1
     u = np.copy(u0)
-    u[::s, ::s], i = my_cg(u0[::s, ::s], b[::s, ::s], N, max_iter=1000)
+    u[::s, ::s], i, ns = my_cg(u0[::s, ::s], b[::s, ::s], N, max_iter=1000)
     
     print(i)
 
@@ -349,7 +349,7 @@ def test_residual():
 
     u0 = np.zeros_like(a)    
     u0[1:-1,1:-1] = np.random.random((N-1, N-1))
-    uh, i = my_cg(u0, a, N)
+    uh, i, ns = my_cg(u0, a, N)
 
     rh = residual(uh, a, N)
 
@@ -554,12 +554,15 @@ def test_pcg():
     print(f'#iterations = {i}')
     ns = np.array(ns, dtype=float)
     #print(ns)
-    plt.figure()
-    plt.semilogy(range(len(ns)), ns, 'k:')
 
-    uh_cg, i_cg = my_cg(u0, rhs, N, tol=tol, max_iter=max_iter)
+    uh_cg, i_cg, ns_cg = my_cg(u0, rhs, N, tol=tol, max_iter=max_iter)
     print(f'#CG-iterations = {i_cg}')
 
+    ns = np.array(ns, dtype=float)
+    ns_cg = np.array(ns_cg, dtype=float)
+    plt.figure()
+    plt.semilogy(range(len(ns)), ns / ns[0], 'k:')
+    plt.semilogy(range(len(ns_cg)), ns_cg / ns_cg[0], 'k--')
     #fig = plt.figure() 
     #ax = fig.add_subplot(111, projection='3d')
 

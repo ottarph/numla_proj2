@@ -90,6 +90,8 @@ def my_cg(u0, f, N, tol=1e-12, max_iter=500):
     Nk = N0
     nk = n0
 
+    n_array = [nk]
+
     i = 0
     while nk / n0 > tol and i < max_iter + 1:
         i += 1
@@ -111,10 +113,12 @@ def my_cg(u0, f, N, tol=1e-12, max_iter=500):
         Nk = Nkp
         nk = nkp
 
+        n_array.append(nk)
+
     if i == max_iter + 1:
         raise Exception("Did not converge within maximum number of iterations")
 
-    return uk, i
+    return uk, i, n_array
 
 
 def restriction(x, N):
@@ -246,9 +250,7 @@ def mgv(u0, rhs, N, nu1, nu2, level, max_level, cg_tol=1e-13, cg_maxiter=500):
     # max_level - total number of levels
     #
     if level==max_level:
-        #u, resvec, i = my_cg(u0,rhs,N,1.e-13,500)
-        u, i = my_cg(u0, rhs, N, cg_tol, cg_maxiter)
-        #print(i)
+        u, i, _ = my_cg(u0, rhs, N, cg_tol, cg_maxiter)
     else:
         u = jacobi(u0, rhs, 2/3, N, nu1)
         rf = residual(u, rhs, N)
@@ -275,7 +277,7 @@ def mgv_debug(u0, rhs, N, nu1, nu2, level, max_level, uh_arr, cg_tol=1e-13, cg_m
     #
     if level==max_level:
         #u, resvec, i = my_cg(u0,rhs,N,1.e-13,500)
-        u, i = my_cg(u0, rhs, N, cg_tol, cg_maxiter)
+        u, i, _ = my_cg(u0, rhs, N, cg_tol, cg_maxiter)
         #print(i)
     else:
         u = jacobi(u0, rhs, 2/3, N, nu1)
@@ -326,7 +328,7 @@ def pcg(u0, rhs, N, nu1, nu2, level, max_level, tol=1e-12, max_iter=500, cg_tol=
     nk = n0
     gk = g0
 
-    ns = [nk]
+    n_array = [nk]
 
     i = 0
     while nk / n0 > tol and i < max_iter + 1:
@@ -354,12 +356,12 @@ def pcg(u0, rhs, N, nu1, nu2, level, max_level, tol=1e-12, max_iter=500, cg_tol=
         nk = nkp
         gk = gkp
 
-        ns.append(nk)
+        n_array.append(nk)
 
     if i == max_iter + 1:
         raise Exception("Did not converge within maximum number of iterations")
 
-    return uk, i, ns
+    return uk, i, n_array
 
 
 def main():

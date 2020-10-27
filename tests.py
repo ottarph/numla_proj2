@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 from mpl_toolkits.mplot3d import Axes3D
 from multigrid import *
+from time import time
 
 
 def test_conjugate_gradient():
@@ -184,10 +185,19 @@ def test_my_cg():
     ax = fig.add_subplot(111, projection='3d')
 
     s = 1
+    surf = ax.plot_surface(x[::s,::s], y[::s,::s], u[::s,::s],
+                            rstride=1, cstride=1, 
+                            cmap=matplotlib.cm.viridis)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    s = 1
     surf = ax.plot_surface(x[::s,::s], y[::s,::s], (u_ex(x,y) - u)[::s,::s],
                             rstride=1, cstride=1, 
                             cmap=matplotlib.cm.viridis)
 
+    '''
     errs = []
     for _ in range(10):
         print(_)
@@ -208,6 +218,7 @@ def test_my_cg():
     fig, ax = plt.subplots()
     plt.plot(range(len(errs)), errs, 'k:')
     print(errs)
+    '''
 
     plt.show()
 
@@ -431,7 +442,7 @@ def test_mgv():
 
     fig = plt.figure() 
     ax = fig.add_subplot(111, projection='3d')
-
+    ax.set_title(r"$u_h$")
     s = 8
     surf = ax.plot_surface(x[::s,::s], y[::s,::s], uh[::s,::s],
                             rstride=1, cstride=1, 
@@ -439,7 +450,7 @@ def test_mgv():
 
     fig = plt.figure() 
     ax = fig.add_subplot(111, projection='3d')
-
+    ax.set_title(r"$u - u_h$")
     s = 8
     surf = ax.plot_surface(x[::s,::s], y[::s,::s], (u - uh)[::s,::s],
                             rstride=1, cstride=1, 
@@ -452,9 +463,6 @@ def test_mgv():
 
 def test_mgv_poly():
 
-    #f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
-    #g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
-    #u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
     f = lambda x, y: 0*x - 1
     g = lambda x, y: np.where(x == 0, 4*y*(1-y), 0*x)
     
@@ -469,8 +477,6 @@ def test_mgv_poly():
 
     rhs = g(x, y)
     rhs[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
-
-    #u = u_ex(x, y)
     
     np.random.seed(seed=1)
     u0 = np.copy(rhs)
@@ -517,14 +523,14 @@ def test_pcg():
     g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
     u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
 
-    N          = 2**6
+    N          = 2**7
     levels     = 3
-    nu1        = 10
-    nu2        = 10
+    nu1        = 5
+    nu2        = 5
     tol        = 1e-13
-    max_iter   = 40
-    cg_tol     = 1e-8
-    cg_maxiter = 300
+    max_iter   = 500
+    cg_tol     = 1e-3
+    cg_maxiter = 500
 
     x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
     y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
@@ -536,19 +542,26 @@ def test_pcg():
     
     np.random.seed(seed=1)
     u0 = np.copy(rhs)
-    u0[1:-1,1:-1] = np.random.random((N-1, N-1))
-
-    uh, i = pcg(u0, rhs, N, nu1, nu2, level=1, max_level=levels, tol=tol, max_iter=max_iter, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
+    #u0[1:-1,1:-1] = np.random.random((N-1, N-1))
+    u0[1:-1,1:-1] = 0.5
+    start = time()
+    uh, i, ns = pcg(u0, rhs, N, nu1, nu2, level=1, max_level=levels, tol=tol, max_iter=max_iter, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
+    end = time()
+    print(f'{(end-start):.2f} s')
 
     print(f'#iterations = {i}')
+    ns = np.array(ns, dtype=float)
+    #print(ns)
+    plt.figure()
+    plt.semilogy(range(len(ns)), ns, 'k:')
 
-    fig = plt.figure() 
-    ax = fig.add_subplot(111, projection='3d')
+    #fig = plt.figure() 
+    #ax = fig.add_subplot(111, projection='3d')
 
-    s = 2
-    surf = ax.plot_surface(x[::s,::s], y[::s,::s], uh[::s,::s],
-                            rstride=1, cstride=1, 
-                            cmap=matplotlib.cm.viridis)
+    #s = 2
+    #surf = ax.plot_surface(x[::s,::s], y[::s,::s], uh[::s,::s],
+    #                        rstride=1, cstride=1, 
+    #                        cmap=matplotlib.cm.viridis)
 
     plt.show()
 
@@ -566,13 +579,13 @@ def main():
 
     #test_residual()
 
-    test_jacobi()
+    #test_jacobi()
 
     #test_mgv()
 
     #test_mgv_poly()
 
-    #test_pcg()
+    test_pcg()
 
 if __name__ == '__main__':
     main()

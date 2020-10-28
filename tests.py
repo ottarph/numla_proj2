@@ -523,12 +523,63 @@ def test_mgv_iteration():
     g = lambda x, y: np.where(x == 0, 4*y*(1-y), 0*x)
     
 
-    N          = 2**8
+    N          = 3*2**7
     levels     = 4
-    nu1        = 10
-    nu2        = 10
+    nu1        = 5
+    nu2        = 5
     tol        = 1e-12
     max_iter   = 20
+    cg_tol     = 1e-3
+    cg_maxiter = 400
+
+    x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
+    y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
+
+    rhs = g(x, y)
+    rhs[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
+    
+    np.random.seed(seed=1)
+    u0 = np.copy(rhs)
+    u0[1:-1,1:-1] = np.random.random((N-1, N-1))
+    
+    start = time()
+    uh, i, ns = mgv_iteration(u0, rhs, N, nu1, nu2, level=1, max_level=levels, tol=tol, max_iter=max_iter, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
+    end = time()
+    runtime = end - start
+
+    print(f'#MG iterations = {i}')
+    print(f'MG runtime = {runtime:.2f}')
+
+    start = time()
+    uh_cg, i_cg, ns_cg = my_cg(u0, rhs, N, tol=tol, max_iter=2000)
+    end = time()
+    runtime_cg = end - start
+    print(f'#CG iterations = {i_cg}')
+    print(f'CG runtime = {runtime_cg:.2f}')
+
+    plt.figure()
+    ns = np.array(ns, dtype=float)
+    ns_cg = np.array(ns_cg, dtype=float)
+    plt.semilogy(range(len(ns)), ns / ns[0], 'k:', label=r'MG V-cycle')
+    plt.semilogy(range(len(ns_cg)), ns_cg / ns_cg[0], 'k--', label=r'Conjugate gradient')
+    plt.legend()
+
+    plt.show()
+
+    return
+
+def test_mgv_iteration_steps():
+
+    f = lambda x, y: 0*x - 1
+    g = lambda x, y: np.where(x == 0, 4*y*(1-y), 0*x)
+    
+
+    N          = 2**5
+    levels     = 4
+    nu1        = 2
+    nu2        = 2
+    tol        = 1e-12
+    max_iter   = 100
     cg_tol     = 1e-7
     cg_maxiter = 400
 
@@ -542,17 +593,33 @@ def test_mgv_iteration():
     u0 = np.copy(rhs)
     u0[1:-1,1:-1] = np.random.random((N-1, N-1))
     
-    uh, i, ns = mgv_iteration(u0, rhs, N, nu1, nu2, level=1, max_level=levels, tol=tol, max_iter=max_iter, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
+    start = time()
+    uh, i, ns, uh_arr = mgv_iteration_steps(u0, rhs, N, nu1, nu2, level=1, max_level=levels, tol=tol, max_iter=max_iter, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
+    end = time()
+    runtime = end - start
 
-    print(f'#iterations = {i}')
+    K = len(uh_arr[:5+1])
+    s = 2
+    fig = plt.figure()
+    plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+    for i, uh in enumerate(uh_arr[:5+1]):
+        k = uh.shape[0]
+        xx = np.outer(np.linspace(0, 1, k), np.ones(k))
+        yy = np.outer(np.ones(k), np.linspace(0, 1, k))
+        ax = fig.add_subplot(K//2 + K%2, 2, i+1, projection='3d')
+        surf = ax.plot_surface(xx, yy, uh,
+                            rstride=1, cstride=1, 
+                            cmap=matplotlib.cm.viridis, label=f'$u_{i}$')
+    
 
     plt.figure()
     ns = np.array(ns, dtype=float)
-    plt.semilogy(range(len(ns)), ns / ns[0], 'k:', label=r'$||r_k|| / ||r_0||$')
+    plt.semilogy(range(len(ns)), ns / ns[0], 'k:', label=r'MG V-cycle')
+    plt.axhline(y=1e-12, color='black', linewidth='0.7', alpha=0.8, label=r'$10^{-12}$')
     plt.legend()
 
     plt.show()
-
+    
     return
 
 def test_pcg():
@@ -631,7 +698,9 @@ def main():
 
     #test_mgv_poly()
 
-    test_mgv_iteration()
+    #test_mgv_iteration()
+
+    test_mgv_iteration_steps()
 
     #test_pcg()
 

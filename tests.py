@@ -682,6 +682,68 @@ def test_pcg():
 
     return
 
+def test_pcg_steps():
+
+    f = lambda x, y: 0*x - 1
+    g = lambda x, y: np.where(x == 0, 4*y*(1-y), 0*x)
+    
+
+    N          = 2**7
+    levels     = 7
+    nu1        = 4
+    nu2        = 4
+    tol        = 1e-12
+    max_iter   = 1000
+    cg_tol     = 1e-12
+    cg_maxiter = 1000
+
+    x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
+    y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
+
+    rhs = g(x, y)
+    rhs[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
+    
+    np.random.seed(seed=1)
+    u0 = np.copy(rhs)
+    u0[1:-1,1:-1] = np.random.random((N-1, N-1))
+    
+    start = time()
+    uh, i, ns, uh_arr = pcg_steps(u0, rhs, N, nu1, nu2, level=1, max_level=levels, tol=tol, max_iter=max_iter, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
+    end = time()
+    runtime = end - start
+
+    start = time()
+    uh_mg, i_mg, ns_mg = mgv_iteration(u0, rhs, N, nu1, nu2, level=1, max_level=levels, tol=tol, max_iter=max_iter, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
+    end = time()
+    runtime_cg = end - start
+
+    print(f'PCG runtime = {runtime*1000:.2f} ms')
+    print(f'MG runtime = {runtime_cg*1000:.2f} ms')
+
+    K = len(uh_arr[:5+1])
+    s = N // 2**5
+    fig = plt.figure()
+    plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+    for i, uh in enumerate(uh_arr[:5+1]):
+        k = uh.shape[0]
+        xx = np.outer(np.linspace(0, 1, k), np.ones(k))
+        yy = np.outer(np.ones(k), np.linspace(0, 1, k))
+        ax = fig.add_subplot(K//2 + K%2, 2, i+1, projection='3d')
+        surf = ax.plot_surface(xx[::s,::s], yy[::s,::s], uh[::s,::s],
+                            rstride=1, cstride=1, 
+                            cmap=matplotlib.cm.viridis, label=f'$u_{i}$')
+    
+
+    plt.figure()
+    ns = np.array(ns, dtype=float)
+    plt.semilogy(range(len(ns)), ns / ns[0], 'k:', label=r'MGCG')
+    plt.axhline(y=1e-12, color='black', linewidth='0.7', alpha=0.8, label=r'$10^{-12}$')
+    plt.legend()
+
+    plt.show()
+    
+    return
+
 def main():
 
     #test_my_cg()
@@ -700,7 +762,9 @@ def main():
 
     #test_mgv_iteration()
 
-    test_mgv_iteration_steps()
+    #test_mgv_iteration_steps()
+
+    test_pcg_steps()
 
     #test_pcg()
 

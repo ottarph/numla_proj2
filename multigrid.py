@@ -420,6 +420,80 @@ def pcg(u0, rhs, N, nu1, nu2, level, max_level, tol=1e-12, max_iter=500, cg_tol=
 
     return uk, i, n_array
 
+def pcg_steps(u0, rhs, N, nu1, nu2, level, max_level, tol=1e-12, max_iter=500, cg_tol=1e-13, cg_maxiter=500):
+
+    def L(u):
+        u = np.copy(u)
+
+        N = u.shape[0] - 1
+        h = 1 / N
+
+        index = np.arange(1, N)
+        ixy = np.ix_(index, index)
+        ixm_y = np.ix_(index-1, index)
+        ixp_y = np.ix_(index+1, index)
+        ix_ym = np.ix_(index, index-1)
+        ix_yp = np.ix_(index, index+1)
+        
+        u[ixy] = -( u[ixm_y] + u[ixp_y] + u[ix_ym] + u[ix_yp] - 4*u[ixy]) / h**2
+
+        return u
+
+    inner = lambda x, y: np.sum( (x * y) )
+
+    r0 = rhs - L(u0)
+    z0 = mgv(np.zeros_like(r0), r0, N, nu1, nu2, level, max_level, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
+    p0 = np.copy(z0)
+
+    N0 = inner(r0, r0)
+    n0 = np.sqrt(N0)
+    g0 = inner(r0, z0)
+
+    uk = np.copy(u0)
+    rk = r0
+    zk = z0
+    pk = p0
+    Nk = N0
+    nk = n0
+    gk = g0
+
+    n_array = [nk]
+    uh_array = [uk]
+
+    i = 0
+    while nk / n0 > tol and i < max_iter + 1:
+        i += 1
+
+        ak = gk / inner(L(pk), pk)
+
+        ukp = uk + ak * pk
+        rkp = rk - ak * L(pk)
+        zkp = mgv(np.zeros_like(rkp), rkp, N, nu1, nu2, level, max_level, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
+
+        Nkp = inner(rkp, rkp)
+        nkp = np.sqrt(Nkp)
+        gkp = inner(rkp, zkp)
+
+
+        bk = gkp / gk
+        pkp = zkp + bk * pk
+
+        uk = ukp
+        rk = rkp
+        zk = zkp
+        pk = pkp
+        Nk = Nkp
+        nk = nkp
+        gk = gkp
+
+        n_array.append(nk)
+        uh_array.append(uk)
+
+    if i == max_iter + 1:
+        raise Exception("Did not converge within maximum number of iterations")
+
+    return uk, i, n_array, uh_array
+
 
 def main():
 

@@ -18,9 +18,7 @@ def cg_pcg_comparison():
     Ns = [2**i for i in range(5, 8+1)]
     K = 20
     Ns = 2**3 * np.unique(np.logspace(2.5, 4.5, K, base=2.0, dtype=int))
-    print(Ns)
     for N in Ns:
-        #print(N)
         print('\r' + ' '*10 + '\r' + f'N = {N}', end='')
 
         x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))

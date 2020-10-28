@@ -517,6 +517,44 @@ def test_mgv_poly():
 
     return
 
+def test_mgv_iteration():
+
+    f = lambda x, y: 0*x - 1
+    g = lambda x, y: np.where(x == 0, 4*y*(1-y), 0*x)
+    
+
+    N          = 2**8
+    levels     = 4
+    nu1        = 10
+    nu2        = 10
+    tol        = 1e-12
+    max_iter   = 20
+    cg_tol     = 1e-7
+    cg_maxiter = 400
+
+    x = np.outer(np.linspace(0, 1, N+1), np.ones(N+1))
+    y = np.outer(np.ones(N+1), np.linspace(0, 1, N+1))
+
+    rhs = g(x, y)
+    rhs[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
+    
+    np.random.seed(seed=1)
+    u0 = np.copy(rhs)
+    u0[1:-1,1:-1] = np.random.random((N-1, N-1))
+    
+    uh, i, ns = mgv_iteration(u0, rhs, N, nu1, nu2, level=1, max_level=levels, tol=tol, max_iter=max_iter, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
+
+    print(f'#iterations = {i}')
+
+    plt.figure()
+    ns = np.array(ns, dtype=float)
+    plt.semilogy(range(len(ns)), ns / ns[0], 'k:', label=r'$||r_k|| / ||r_0||$')
+    plt.legend()
+
+    plt.show()
+
+    return
+
 def test_pcg():
 
     f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
@@ -593,7 +631,9 @@ def main():
 
     #test_mgv_poly()
 
-    test_pcg()
+    test_mgv_iteration()
+
+    #test_pcg()
 
 if __name__ == '__main__':
     main()

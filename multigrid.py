@@ -1,63 +1,12 @@
 import numpy as np
-from tests import *
-
-
-def conjugate_gradient(A, b, x0, tol=1e-12, max_iter=500):
-    """
-    Presumed to work on 2D systems
-        A:        function returning result of linear operation A(x)
-        b:        RHS of linear system A(x) = b
-        x0:       Starting guess
-        tol:      Relative residual tolerance
-        max_iter: Maximum number of iterations
-    """
-
-    inner = lambda x, y: np.sum( (x * y) )
-    #inner = lambda x, y:np.inner(x.flatten(), y.flatten())
-
-    r0 = b - A(x0)
-    p0 = np.copy(r0)
-
-    #N0 = np.linalg.norm(r0, ord='fro')
-    N0 = inner(r0, r0)
-    n0 = np.sqrt(N0)
-
-    xk = np.copy(x0)
-    rk = r0
-    pk = p0
-    Nk = N0
-    nk = n0
-
-    i = 0
-    while nk / n0 > tol and i < max_iter + 1:
-        i += 1
-
-        ak = Nk / inner(A(pk), pk)
-        #ak = inner(rk, rk) / inner(A(pk), pk)
-
-        xkp = xk + ak * pk
-        rkp = rk - ak * A(pk)
-
-        Nkp = inner(rkp, rkp)
-        nkp = np.sqrt(Nkp)
-
-        bk = Nkp / Nk
-        #bk = inner(rkp, rkp) / inner(rk, rk)
-        pkp = rkp + bk * pk
-
-        xk = xkp
-        rk = rkp
-        pk = pkp
-        Nk = Nkp
-        nk = nkp
-
-    if i == max_iter + 1:
-        raise Exception("Did not converge within maximum number of iterations")
-
-    return xk, i
 
 
 def my_cg(u0, f, N, tol=1e-12, max_iter=500):
+    """
+        Performs conjugate gradient method of discrete Poisson equation
+        on (N+1)x(N+1) grid for initial guess u0 and right hand side f.
+        Used on coarsest grid of multigrid V-cycle.
+    """
 
     def L(u):
         u = np.copy(u)
@@ -122,7 +71,11 @@ def my_cg(u0, f, N, tol=1e-12, max_iter=500):
 
 
 def restriction(x, N):
-    """ restriction with full weighting """
+    """
+        Performs restriction with full weighting methdo of solution
+        x to grid of half fineness. x a (N+1)x(N+1) grid and returns
+        grid of size (N//2+1)x(N//2+1).
+    """
     n = int(N/2)
     y = np.zeros((n+1, n+1), dtype=float)
 
@@ -153,7 +106,10 @@ def restriction(x, N):
 
 
 def interpolation(x, n):
-    """ Linear interpolation to grid with half grid size"""
+    """
+        Performs linear interpolation of solution x to grid of double fineness.
+        x a (n+1)x(n+1) grid and returns grid of size (2n+1)x(2n+1).
+    """
     N = 2*n
     y = np.zeros((2*n+1, 2*n+1), dtype=float)
 
@@ -174,19 +130,21 @@ def interpolation(x, n):
     y[ix_yp]  = 1/2 * (x[Ixy] + x[Ix_yp])
     y[ixp_yp] = 1/4 * (x[Ixy] + x[Ixp_y] + x[Ix_yp] + x[Ixp_yp])
 
-    """ Not sure if this section is needed """
     Edge = np.arange(0, 2*n + 1, step=2, dtype=int)
     edge = np.arange(0, n + 1, dtype=int)
     y[Edge, np.full(n+1, 0, dtype=int)] = x[edge, np.full(n+1, 0, dtype=int)]
     y[Edge, np.full(n+1, 2*n, dtype=int)] = x[edge, np.full(n+1, n, dtype=int)]
     y[np.full(n+1, 0, dtype=int), Edge] = x[np.full(n+1, 0, dtype=int), edge]
     y[np.full(n+1, 2*n, dtype=int), Edge] = x[np.full(n+1, n, dtype=int), edge]
-    """ Should enforce accurate boundary conditions? """
 
     return y
 
 
 def residual(u, rhs, N):
+    """
+        Calculates residual of discrete Poisson problem on grid
+        of size (N+1)x(N+1) for solution u and right hand side rhs.
+    """
 
     def L(u):
         u = np.copy(u)
@@ -208,6 +166,11 @@ def residual(u, rhs, N):
 
 
 def jacobi(u0, rhs, w, N, nu):
+    """
+        Performs nu iterations of the weighted Jacobi iterative
+        method with weighting w on grid of size (N+1)x(N+1) for
+        initial guess u0 and right hand side rhs.
+    """
 
     h = 1 / N
 
@@ -237,20 +200,25 @@ def jacobi(u0, rhs, w, N, nu):
 
 
 def mgv(u0, rhs, N, nu1, nu2, level, max_level, cg_tol=1e-13, cg_maxiter=500):
-    # the function mgv(u0,rhs,N,nu1,nu2,level,max_level) performs
-    # one multigrid V-cycle on the 2D Poisson problem on the unit
-    # square [0,1]x[0,1] with initial guess u0 and righthand side rhs.
-    #
-    # input: u0 - initial guess
-    # rhs - righthand side
-    # N - u0 is a (N+1)x(N+1) matrix
-    # nu1 - number of presmoothings
-    # nu2 - number of postsmoothings
-    # level - current level
-    # max_level - total number of levels
-    #
+    """
+        the function mgv performs
+        one multigrid V-cycle on the 2D Poisson problem on the unit
+        square [0,1]x[0,1] with initial guess u0 and righthand side rhs.
+        input:
+            u0 - initial guess
+            rhs - righthand side
+            N - u0 is a (N+1)x(N+1) matrix
+            nu1 - number of presmoothings
+            nu2 - number of postsmoothings
+            level - current level
+            max_level - total number of levels
+            cg_tol - tolerance of the cg-method used on coarsest grid
+            cg_maxiter - maximum number of iterations on cg-method on coarsest grid
+    """
+
     if level==max_level:
         u, i, _ = my_cg(u0, rhs, N, cg_tol, cg_maxiter)
+
     else:
         u = jacobi(u0, rhs, 2/3, N, nu1)
         rf = residual(u, rhs, N)
@@ -259,39 +227,29 @@ def mgv(u0, rhs, N, nu1, nu2, level, max_level, cg_tol=1e-13, cg_maxiter=500):
         ef = interpolation(ec, int(N/2))
         u = u + ef
         u = jacobi(u, rhs, 2/3, N, nu2)
+
     return u
 
-
-def mgv_debug(u0, rhs, N, nu1, nu2, level, max_level, uh_arr, cg_tol=1e-13, cg_maxiter=500):
-    # the function mgv(u0,rhs,N,nu1,nu2,level,max_level) performs
-    # one multigrid V-cycle on the 2D Poisson problem on the unit
-    # square [0,1]x[0,1] with initial guess u0 and righthand side rhs.
-    #
-    # input: u0 - initial guess
-    # rhs - righthand side
-    # N - u0 is a (N+1)x(N+1) matrix
-    # nu1 - number of presmoothings
-    # nu2 - number of postsmoothings
-    # level - current level
-    # max_level - total number of levels
-    #
-    if level==max_level:
-        #u, resvec, i = my_cg(u0,rhs,N,1.e-13,500)
-        u, i, _ = my_cg(u0, rhs, N, cg_tol, cg_maxiter)
-        #print(i)
-    else:
-        u = jacobi(u0, rhs, 2/3, N, nu1)
-        rf = residual(u, rhs, N)
-        rc = restriction(rf, N)
-        ec = mgv_debug(np.zeros((int(N/2)+1,int(N/2)+1)), rc, int(N/2), nu1, nu2, level+1, max_level, uh_arr, cg_tol=cg_tol, cg_maxiter=cg_maxiter)
-        ef = interpolation(ec, int(N/2))
-        u = u + ef
-        u = jacobi(u, rhs, 2/3, N, nu2)
-    uh_arr.append(u)
-    return u
 
 def mgv_iteration(u0, rhs, N, nu1, nu2, level, max_level, tol, max_iter, cg_tol=1e-13, cg_maxiter=500):
-    
+    """
+        the function mgv_iteration iterates until convergence the
+        mgv-cycle on the 2D Poisson problem on the unit square [0,1]x[0,1]
+        with initial guess u0 and righthand side rhs.
+        input:
+            u0 - initial guess
+            rhs - righthand side
+            N - u0 is a (N+1)x(N+1) matrix
+            nu1 - number of presmoothings
+            nu2 - number of postsmoothings
+            level - current level
+            max_level - total number of levels
+            tol - relative tolerance of the multigrid iterative method
+            max_iter - maximum number of iterations of multigrid iterative method
+            cg_tol - tolerance of the cg-method used on coarsest grid
+            cg_maxiter - maximum number of iterations on cg-method on coarsest grid
+    """
+
     inner = lambda x, y: np.sum( (x * y) )
 
     r0 = residual(u0, rhs, N)
@@ -318,8 +276,27 @@ def mgv_iteration(u0, rhs, N, nu1, nu2, level, max_level, tol, max_iter, cg_tol=
 
     return uk, i, n_array
 
+
 def mgv_iteration_steps(u0, rhs, N, nu1, nu2, level, max_level, tol, max_iter, cg_tol=1e-13, cg_maxiter=500):
-    
+    """
+        the function mgv_iteration iterates until convergence the
+        mgv-cycle on the 2D Poisson problem on the unit square [0,1]x[0,1]
+        with initial guess u0 and righthand side rhs. Also returns
+        all iterates.
+        input:
+            u0 - initial guess
+            rhs - righthand side
+            N - u0 is a (N+1)x(N+1) matrix
+            nu1 - number of presmoothings
+            nu2 - number of postsmoothings
+            level - current level
+            max_level - total number of levels
+            tol - relative tolerance of the multigrid iterative method
+            max_iter - maximum number of iterations of multigrid iterative method
+            cg_tol - tolerance of the cg-method used on coarsest grid
+            cg_maxiter - maximum number of iterations on cg-method on coarsest grid
+    """
+
     inner = lambda x, y: np.sum( (x * y) )
 
     r0 = residual(u0, rhs, N)
@@ -349,7 +326,23 @@ def mgv_iteration_steps(u0, rhs, N, nu1, nu2, level, max_level, tol, max_iter, c
     return uk, i, n_array, uh_array
 
 def pcg(u0, rhs, N, nu1, nu2, level, max_level, tol=1e-12, max_iter=500, cg_tol=1e-13, cg_maxiter=500):
-
+    """
+        The function pcg performs the multigrid V-cycle preconditioned conjugate
+        gradient method for the 2D Poisson problem on the unit square [0,1]x[0,1]
+        with initial guess u0 and righthand side rhs.
+        input:
+            u0 - initial guess
+            rhs - righthand side
+            N - u0 is a (N+1)x(N+1) matrix
+            nu1 - number of presmoothings in V-cycle
+            nu2 - number of postsmoothings in V-cycle
+            level - starting level of V-cycle, should be 1
+            max_level - number of levels in V-cycle
+            tol - relative tolerance of the preconditioned conjugate gradient method
+            max_iter - maximum number of iterations of preconditioned conjugate gradient method
+            cg_tol - tolerance of the cg-method used on coarsest grid in V-cycle
+            cg_maxiter - maximum number of iterations on cg-method on coarsest grid in V-cycle
+    """
     def L(u):
         u = np.copy(u)
 
@@ -421,6 +414,23 @@ def pcg(u0, rhs, N, nu1, nu2, level, max_level, tol=1e-12, max_iter=500, cg_tol=
     return uk, i, n_array
 
 def pcg_steps(u0, rhs, N, nu1, nu2, level, max_level, tol=1e-12, max_iter=500, cg_tol=1e-13, cg_maxiter=500):
+    """
+        The function pcg performs the multigrid V-cycle preconditioned conjugate
+        gradient method for the 2D Poisson problem on the unit square [0,1]x[0,1]
+        with initial guess u0 and righthand side rhs. Also returns all iterates.
+        input:
+            u0 - initial guess
+            rhs - righthand side
+            N - u0 is a (N+1)x(N+1) matrix
+            nu1 - number of presmoothings in V-cycle
+            nu2 - number of postsmoothings in V-cycle
+            level - starting level of V-cycle, should be 1
+            max_level - number of levels in V-cycle
+            tol - relative tolerance of the preconditioned conjugate gradient method
+            max_iter - maximum number of iterations of preconditioned conjugate gradient method
+            cg_tol - tolerance of the cg-method used on coarsest grid in V-cycle
+            cg_maxiter - maximum number of iterations on cg-method on coarsest grid in V-cycle
+    """
 
     def L(u):
         u = np.copy(u)
@@ -495,23 +505,3 @@ def pcg_steps(u0, rhs, N, nu1, nu2, level, max_level, tol=1e-12, max_iter=500, c
     return uk, i, n_array, uh_array
 
 
-def main():
-
-    #test_my_cg()
-
-    #test_restriction()
-
-    #test_interpolation()
-
-    #test_residual()
-
-    test_jacobi()
-
-    #test_mgv()
-
-
-    return
-
-
-if __name__ == '__main__':
-    main()

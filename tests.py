@@ -6,132 +6,6 @@ from multigrid import *
 from time import time
 
 
-def test_conjugate_gradient():
-    M = np.array([[2, 1, 1], [1, 2, 1], [1, 1, 2]], dtype=float)
-
-    def A(x):
-
-        return M @ x
-
-    b = M @ np.array([1,2,3])
-
-    print(b)
-    print(A(b))
-
-    x, i = conjugate_gradient(A, b, np.zeros(3))
-    print()
-    print(i)
-    print(x)
-    print(b - A(x))
-
-
-    def A(x):
-        return 0.5 * x
-    b = A(np.array([[1, 2], [3, 4]], dtype=float))
-    x, i = conjugate_gradient(A, b, np.zeros((2,2)))
-    print()
-    print(i)
-    print(x)
-    print(b - A(x))
-
-    def A(x):
-        return np.arange(1,5).reshape(2,2) * x
-    b = A(np.array([[1, 2], [3, 4]], dtype=float))
-    x, i = conjugate_gradient(A, b, np.zeros((2,2)))
-    print()
-    print(i)
-    print(x)
-    print(b - A(x))
-
-    N = 20
-    h = 1 / (N-1)
-    L = np.zeros((N**2, N**2), dtype=float)
-    B = np.diag(np.full(N, 4, dtype=float), 0)
-    B += np.diag(np.full(N-1, -1, dtype=float),  1)
-    B += np.diag(np.full(N-1, -1, dtype=float), -1)
-    I = np.eye(N)
-
-    L[0*N:(0+1)*N, 0*N:(0+1)*N] += B
-    for i in range(1, N):
-        L[i*N:(i+1)*N, i*N:(i+1)*N] += B
-        L[(i-1)*N:i*N, i*N:(i+1)*N] -= I
-        L[i*N:(i+1)*N, (i-1)*N:i*N] -= I
-
-    L = L / h**2
-
-    print(L)
-
-    def A(x):
-
-        return L @ x
-
-    f = lambda x, y: 20*np.pi**2 * np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
-    g = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
-    u_ex = lambda x, y: np.sin(2*np.pi*x) * np.sin(4*np.pi*y)
-
-    x = np.outer(np.linspace(0, 1, N), np.ones(N))
-    y = np.outer(np.ones(N), np.linspace(0, 1, N))
-
-    b = np.zeros((N,N), dtype=float)
-    b = g(x, y)
-    b[1:-1, 1:-1] = f(x[1:-1, 1:-1], y[1:-1, 1:-1])
-    b = b.flatten()
-
-    u, i = conjugate_gradient(A, b, np.zeros_like(b))
-    print(i)
-
-    u = u.reshape(N,N)
-
-    fig = plt.figure() 
-    ax = fig.add_subplot(111, projection='3d')
-
-    K = np.linalg.cond(L)
-    print(K)
-
-    surf = ax.plot_surface(x, y, ( (L@u.flatten()).reshape(N,N) - b.reshape(N,N) ) * K,
-                            rstride=1, cstride=1, 
-                            cmap=matplotlib.cm.viridis)
-    plt.show()
-
-
-    def L(u):
-        v = np.zeros_like(u)
-
-        v[0,0] = 2*u[0,0] - u[0,1]
-        v[0,1] = -u[0,0] + 2*u[0,1] - u[1,0]
-        v[1,0] = -u[0,1] + 2*u[1,0] - u[1,1]
-        v[1,1] = -u[1,0] + 2*u[1,1]
-
-        return v
-
-    def L(u):
-        A = np.array([[2, -1, 0, 0], [-1, 2, -1, 0], [0, -1, 2, -1], [0, 0, -1, 2]], dtype=float)
-
-        #print(A.shape)
-        #print(u.shape)
-
-        uu = u.flatten()
-        #print(uu.shape)
-        #print(uu)
-
-        return ( A @ uu ).reshape(u.shape)
-
-    u0 = np.zeros((4,4), dtype=float)
-    b_red = np.array([[10, 18], [17, 10]], dtype=float)
-    b_red = np.array([[1, 0], [0, 1]], dtype=float)
-    #u0 = np.zeros(4, dtype=float)
-    #b_red = np.array([1, 0, 0, 1], dtype=float)
-    u0[::2, ::2], i = conjugate_gradient(L, b_red, np.zeros_like(b_red))
-    #u, i = conjugate_gradient(L, b_red, np.zeros_like(b_red))
-    #print(i)
-    #print(u)
-    print(i)
-    print(u0)
-
-
-
-    return
-
 def test_my_cg():
 
     def L(u):
@@ -482,27 +356,9 @@ def test_mgv_poly():
     u0 = np.copy(rhs)
     u0[1:-1,1:-1] = np.random.random((N-1, N-1))
     
-    #uh_arr = []
-    #uh = mgv_debug(u0, rhs, N, nu1, nu2, level=1, max_level=levels, uh_arr=uh_arr)
     uh = mgv(u0, rhs, N, nu1, nu2, level=1, max_level=levels)
 
-    #region
-    '''
-    K = len(uh_arr)
-    s = 2
-    fig = plt.figure()
-    for i, uh in enumerate(uh_arr):
-        k = uh.shape[0]
-        xx = np.outer(np.linspace(0, 1, k), np.ones(k))
-        yy = np.outer(np.ones(k), np.linspace(0, 1, k))
-        ax = fig.add_subplot(K//2 + K%2, 2, i+1, projection='3d')
-        surf = ax.plot_surface(xx, yy, uh,
-                            rstride=1, cstride=1, 
-                            cmap=matplotlib.cm.viridis)
-    '''
-    #endregion
     
-    #'''
     fig = plt.figure() 
     ax = fig.add_subplot(111, projection='3d')
 
@@ -510,7 +366,6 @@ def test_mgv_poly():
     surf = ax.plot_surface(x[::s,::s], y[::s,::s], uh[::s,::s],
                             rstride=1, cstride=1, 
                             cmap=matplotlib.cm.viridis)
-    #'''
 
     plt.show()
 
@@ -658,7 +513,6 @@ def test_pcg():
 
     print(f'#iterations = {i}')
     ns = np.array(ns, dtype=float)
-    #print(ns)
 
     uh_cg, i_cg, ns_cg = my_cg(u0, rhs, N, tol=tol, max_iter=max_iter)
     print(f'#CG-iterations = {i_cg}')
@@ -668,13 +522,6 @@ def test_pcg():
     plt.figure()
     plt.semilogy(range(len(ns)), ns / ns[0], 'k:')
     plt.semilogy(range(len(ns_cg)), ns_cg / ns_cg[0], 'k--')
-    #fig = plt.figure() 
-    #ax = fig.add_subplot(111, projection='3d')
-
-    #s = 2
-    #surf = ax.plot_surface(x[::s,::s], y[::s,::s], uh[::s,::s],
-    #                        rstride=1, cstride=1, 
-    #                        cmap=matplotlib.cm.viridis)
 
     plt.show()
 
